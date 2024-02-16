@@ -65,7 +65,7 @@ func main() {
 	c.Visit(imdbURL)
 
 	// opening the CSV file
-	file, err := os.Create("products.csv")
+	file, err := os.Create("ratings.csv")
 	if err != nil {
 		log.Fatalln("Failed to create output CSV file", err)
 	}
