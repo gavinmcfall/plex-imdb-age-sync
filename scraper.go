@@ -36,7 +36,7 @@ func main() {
 
 	// scraping logic
 	c.OnHTML("section#certificates", func(e *colly.HTMLElement) {
-		e.ForEach("ul.ipl-inline-list li.ipl-inline-list__item a", func(_ int, elem *colly.HTMLElement) {
+		e.ForEach("ul.ipl-inline-list li.ipl-inline-list__item a[href*=\"/search/title?certificates=NZ:\"]", func(_ int, elem *colly.HTMLElement) {
 			// Extract text from the <a> element
 			text := elem.Text
 
