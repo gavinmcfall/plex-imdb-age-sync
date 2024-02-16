@@ -10,42 +10,41 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// Config represents the configuration structure
-type Config struct {
+// LibAuthVar represents the LibAuthVaruration structure
+type LibAuthVar struct {
 	PlexToken string `yaml:"plex_token"`
 }
 
-// plexLibraryListData struct to match the JSON structure
-type plexLibraryListData struct {
+// plexLibraryItemsData struct to match the JSON structure
+type plexLibraryItemsData struct {
 	MediaContainer struct {
-		Directory []struct {
-			Key   string `json:"key"`
-			Title string `json:"title"`
-			UUID  string `json:"uuid"`
-		} `json:"Directory"`
+		Metadata []struct {
+			RatingKey string `json:"ratingKey"`
+			Title     string `json:"title"`
+		} `json:"Metadata"`
 	} `json:"MediaContainer"`
 }
 
-func plexLibraryList() {
-	// Open the config file
-	configFile, err := os.Open("vars.yaml")
+func plexLibraryItems() {
+	// Open the LibAuthVar file
+	LibAuthVarFile, err := os.Open("vars.yaml")
 	if err != nil {
-		fmt.Println("Error opening config file:", err)
+		fmt.Println("Error opening LibAuthVar file:", err)
 		return
 	}
-	defer configFile.Close()
+	defer LibAuthVarFile.Close()
 
-	// Decode the config YAML
-	var config Config
-	decoder := yaml.NewDecoder(configFile)
-	err = decoder.Decode(&config)
+	// Decode the LibAuthVar YAML
+	var LibAuthVar LibAuthVar
+	decoder := yaml.NewDecoder(LibAuthVarFile)
+	err = decoder.Decode(&LibAuthVar)
 	if err != nil {
-		fmt.Println("Error decoding config YAML:", err)
+		fmt.Println("Error decoding LibAuthVar YAML:", err)
 		return
 	}
 
 	// Make HTTP GET request to the API
-	url := "http://10.90.3.204:32400/library/sections"
+	url := "http://10.90.3.204:32400/library/sections/14/all"
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		fmt.Println("Error creating request:", err)
@@ -54,7 +53,7 @@ func plexLibraryList() {
 
 	// Set required headers
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("X-Plex-Token", config.PlexToken)
+	req.Header.Set("X-Plex-Token", LibAuthVar.PlexToken)
 
 	// Send HTTP request
 	client := &http.Client{}
@@ -65,8 +64,8 @@ func plexLibraryList() {
 	}
 	defer resp.Body.Close()
 
-	// Decode the JSON plexLibraryListData
-	var data plexLibraryListData
+	// Decode the JSON plexLibraryItemsData
+	var data plexLibraryItemsData
 	err = json.NewDecoder(resp.Body).Decode(&data)
 	if err != nil {
 		fmt.Println("Error decoding JSON:", err)
@@ -74,7 +73,7 @@ func plexLibraryList() {
 	}
 
 	// Create a CSV file
-	file, err := os.Create("plex_libraries.csv")
+	file, err := os.Create("plex_library-items.csv")
 	if err != nil {
 		fmt.Println("Error creating CSV file:", err)
 		return
@@ -86,7 +85,7 @@ func plexLibraryList() {
 	defer writer.Flush()
 
 	// Write header to CSV file
-	header := []string{"Title", "Key", "UUID"}
+	header := []string{"Title", "RatingKey"}
 	err = writer.Write(header)
 	if err != nil {
 		fmt.Println("Error writing header to CSV file:", err)
@@ -94,13 +93,13 @@ func plexLibraryList() {
 	}
 
 	// Write data to CSV file
-	for _, item := range data.MediaContainer.Directory {
-		err := writer.Write([]string{item.Title, item.Key, item.UUID})
+	for _, item := range data.MediaContainer.Metadata {
+		err := writer.Write([]string{item.Title, item.RatingKey})
 		if err != nil {
 			fmt.Println("Error writing data to CSV file:", err)
 			return
 		}
 	}
 
-	fmt.Println("Data has been written to plex_libraries.csv")
+	fmt.Println("Data has been written to plex_library_items.csv")
 }

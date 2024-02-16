@@ -16,7 +16,7 @@ type videoAgeRating struct {
 	IMDbID  string
 }
 
-func main() {
+func imdbScraper() {
 	// initializing the slice of structs to store the data to scrape
 	var videoAgeRatings []videoAgeRating
 
