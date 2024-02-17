@@ -89,3 +89,6 @@ func AssemblingPlexLibraries(Libraries plex.LibrarySections, plexConnection *ple
 
 //Massive ass stretch goal
 // Conditionally look for new things that have not yet been updated.
+
+//convention in golang is to use a builder container to build the binary
+//and to distribute using a scratch container
