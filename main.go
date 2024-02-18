@@ -41,21 +41,34 @@ func main() {
 			fmt.Println(Media.Title, Media.RatingKey)
 		}
 	}
-
-	//Take those libraries and get a list of all the media: GetLibraryContent
-
-	//Iterate though the media and get the metadata: GetMetadata
-
-	//Take the IMDB ID from the metadata and scrape the Age rating from IMDB
-
-	//Take that IMDB Age Rating and use it to update the media metadata
-
 }
+
+//Take those libraries and get a list of all the media: GetLibraryContent
+
+//Iterate though the media and get the metadata: GetMetadata
+
+//Take the IMDB ID from the metadata and scrape the Age rating from IMDB
+
+//Take that IMDB Age Rating and use it to update the media metadata
 
 type Library struct {
 	Name    string
 	Key     string
 	Content []plex.Metadata
+}
+
+type ContentWithRating struct {
+	Content []plex.Metadata
+	Guids   []plex.Metadata
+	IMDB    string
+	TMDB    string
+	TVDB    string
+}
+
+type videoAgeRating struct {
+	Country string
+	Rating  string
+	IMDbID  string
 }
 
 func AssemblingPlexLibraries(Libraries plex.LibrarySections, plexConnection *plex.Plex) ([]Library, error) {
@@ -74,6 +87,73 @@ func AssemblingPlexLibraries(Libraries plex.LibrarySections, plexConnection *ple
 	}
 	return results, nil
 }
+
+func AssemblingExternalDatabaseIds(databaseIDs plex.MediaMetadata, plexConnection *plex.Plex) ([]ContentWithRating, error) {
+	var results = []ContentWithRating{}
+	for _, ExternalDatabaseIds := range databaseIDs.MediaContainer.Metadata {
+		ContentWithRating := ContentWithRating{
+			IMDB: ExternalDatabaseIds.AltGUIDs[0].ID,
+			TMDB: ExternalDatabaseIds.AltGUIDs[1].ID,
+			TVDB: ExternalDatabaseIds.AltGUIDs[2].ID,
+		}
+		searchResults, err := plexConnection.GetLibraryContent(ExternalDatabaseIds.AltGUIDs[0].ID, "")
+		if err != nil {
+			return nil, err
+		}
+		ContentWithRating.Guids = searchResults.MediaContainer.Metadata
+		results = append(results, ContentWithRating)
+	}
+	return results, nil
+}
+
+// func imdbScraper() {
+// 	// initializing the slice of structs to store the data to scrape
+// 	var videoAgeRatings []videoAgeRating
+
+// 	// Extract IMDb ID from the URL
+// 	imdbURL := "https://www.imdb.com/title/tt15314262/parentalguide"
+// 	imdbIDParts := strings.Split(imdbURL, "/")
+// 	var imdbID string
+// 	for i, part := range imdbIDParts {
+// 		if part == "title" && i+1 < len(imdbIDParts) {
+// 			imdbID = imdbIDParts[i+1]
+// 			break
+// 		}
+// 	}
+
+// 	// creating a new Colly instance
+// 	c := colly.NewCollector()
+
+// 	// scraping logic
+// 	c.OnHTML("section#certificates", func(e *colly.HTMLElement) {
+// 		e.ForEach("ul.ipl-inline-list li.ipl-inline-list__item a[href*=\"/search/title?certificates=NZ:\"]", func(_ int, elem *colly.HTMLElement) {
+// 			// Extract text from the <a> element
+// 			text := elem.Text
+
+// 			// Split the text by colon
+// 			parts := strings.Split(text, ":")
+
+// 			// Ensure there are two parts (country and rating)
+// 			if len(parts) == 2 {
+// 				country := strings.TrimSpace(parts[0])
+// 				rating := strings.TrimSpace(parts[1])
+
+// 				// Create a new videoAgeRating struct
+// 				videoAgeRating := videoAgeRating{
+// 					Country: country,
+// 					Rating:  rating,
+// 					IMDbID:  imdbID,
+// 				}
+
+// 				// Append the struct to the slice
+// 				videoAgeRatings = append(videoAgeRatings, videoAgeRating)
+// 			}
+// 		})
+// 	})
+
+// 	// visiting the target page
+// 	c.Visit(imdbURL)
+// }
 
 //For loop over all the directories
 //For each directory, extract the directories name, and key and put it into our Libraries struct
