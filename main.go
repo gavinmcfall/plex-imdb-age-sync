@@ -79,7 +79,7 @@ type Library struct {
 func AssemblingPlexLibraries(Libraries plex.LibrarySections, plexConnection *plex.Plex) ([]Library, error) {
 	var results = []Library{}
 	for _, Directory := range Libraries.MediaContainer.Directory {
-		if Directory.Type == "show" || Directory.Type == "movie" {
+		if Directory.Type == "movie" { //|| Directory.Type == "show"
 			Library := Library{
 				Name: Directory.Title,
 				Key:  Directory.Key,
@@ -96,14 +96,36 @@ func AssemblingPlexLibraries(Libraries plex.LibrarySections, plexConnection *ple
 }
 
 // Function takes a provider (imdb, tmdb, tvdb) and returns that providers unique ID for that Movie/Show
+// func GetDatabaseID(metadata plex.Metadata, provider string) string {
+
+// 	fmt.Println("Grabing Provider for "+metadata.Title, "from "+provider)
+
+// 	for i, DatabaseID := range metadata.AltGUIDs {
+// 		fmt.Println("Index: ", i)
+// 		fmt.Println("DatabaseID: ", DatabaseID)
+
+// 	}
+
+// 	return ""
+// }
+
 func GetDatabaseID(metadata plex.Metadata, provider string) string {
 	fmt.Println("Grabing Provider for "+metadata.Title, "from "+provider)
-	for i, DatabaseID := range metadata.AltGUIDs {
-		fmt.Println("Index: ", i)
-		fmt.Println("DatabaseID: ", DatabaseID)
 
+	for i, AltGUID := range metadata.AltGUIDs {
+		fmt.Println("Index: ", i)
+		fmt.Println("AltGUID: ", AltGUID)
+
+		// Check if the id starts with the provider name
+		if strings.HasPrefix(AltGUID.ID, provider+"://") {
+			// Extract the actual ID after the provider name and return it
+			id := strings.TrimPrefix(AltGUID.ID, provider+"://")
+			fmt.Println("DatabaseID: ", id)
+			return id
+		}
 	}
 
+	fmt.Println("No match found for provider:", provider)
 	return ""
 }
 
