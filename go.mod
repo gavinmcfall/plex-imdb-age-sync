@@ -1,10 +1,10 @@
-module web-scraper
+module main.go
 
 go 1.22.0
 
 require (
+	github.com/gavinmcfall/go-plex-client v0.0.0-20240219213859-8ba9af9dcfbd
 	github.com/gocolly/colly v1.2.0
-	github.com/jrudio/go-plex-client v0.0.0-20230508221844-834554e41d30
 )
 
 require (
@@ -15,15 +15,13 @@ require (
 	github.com/antchfx/xpath v1.2.4 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/google/uuid v1.6.0 // indirect
-	github.com/gorilla/websocket v1.5.1 // indirect
+	github.com/golang/protobuf v1.3.1 // indirect
+	github.com/google/uuid v1.1.1 // indirect
+	github.com/gorilla/websocket v1.4.0 // indirect
 	github.com/kennygrant/sanitize v1.2.4 // indirect
 	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d // indirect
 	github.com/temoto/robotstxt v1.1.2 // indirect
-	golang.org/x/net v0.21.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
-	google.golang.org/appengine v1.6.8 // indirect
-	google.golang.org/protobuf v1.26.0 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
+	golang.org/x/net v0.7.0 // indirect
+	golang.org/x/text v0.7.0 // indirect
+	google.golang.org/appengine v1.4.0 // indirect
 )

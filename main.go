@@ -5,11 +5,15 @@ import (
 	"os"
 	"strings"
 
+	"github.com/gavinmcfall/go-plex-client"
 	"github.com/gocolly/colly"
-	"github.com/jrudio/go-plex-client"
 )
 
 func main() {
+
+	//Ratings Fallback
+	//US PG-13 == NZ R13
+	//US R == NZ R16
 
 	//Authenticate with Plex
 	plexConnection, err := plex.New("http://10.90.3.204:32400", os.Getenv("PLEX_TOKEN"))
@@ -24,7 +28,7 @@ func main() {
 		return
 	}
 
-	//Call Plex and get a list of Libraries: GetLibraries
+	// //Call Plex and get a list of Libraries: GetLibraries
 	PlexLibraries, err := plexConnection.GetLibraries()
 	if err != nil {
 		fmt.Println("Error testing connection", err)
@@ -39,28 +43,26 @@ func main() {
 	}
 
 	// // New Rating
-	// newRatings := []Library{}
-	// for _, Library := range allContent {
-	// 	Library.Content = pullRatings(Library.Content)
-	// 	newRatings = append(newRatings, Library)
-	// }
+	newRatings := []Library{}
+	for _, Library := range allContent {
+		Library.Content, err = pullRatings(plexConnection, Library.Content)
+		if err != nil {
+			fmt.Println("Error getting Ratings", err)
+			return
+		}
+		newRatings = append(newRatings, Library)
+	}
 
 	// //Pull Ratings
 
 	// //For each library, get the content
-	// for _, Library := range newRatings {
-	// 	fmt.Println(Library.Name, Library.Key, len(Library.Content))
-	// 	for _, Media := range Library.Content {
-	// 		fmt.Println(Media.Title, Media.RatingKey, Media.ContentRating)
-	// 	}
-	// }
-
-	//Testing DatabaseIDs
-	for _, Library := range allContent {
+	for _, Library := range newRatings {
+		fmt.Println(Library.Name, Library.Key, len(Library.Content))
 		for _, Media := range Library.Content {
-			fmt.Println(Media.Title, Media.Type, GetDatabaseID(Media, "imdb"))
+			fmt.Println(Media.Title, Media.RatingKey) //Add getting the IMDB ID in here
 		}
 	}
+
 }
 
 // Take the IMDB ID from the metadata ✓
@@ -79,7 +81,7 @@ type Library struct {
 func AssemblingPlexLibraries(Libraries plex.LibrarySections, plexConnection *plex.Plex) ([]Library, error) {
 	var results = []Library{}
 	for _, Directory := range Libraries.MediaContainer.Directory {
-		if Directory.Type == "movie" { //|| Directory.Type == "show"
+		if Directory.Type == "movie" || Directory.Type == "show" {
 			Library := Library{
 				Name: Directory.Title,
 				Key:  Directory.Key,
@@ -96,52 +98,40 @@ func AssemblingPlexLibraries(Libraries plex.LibrarySections, plexConnection *ple
 }
 
 // Function takes a provider (imdb, tmdb, tvdb) and returns that providers unique ID for that Movie/Show
-// func GetDatabaseID(metadata plex.Metadata, provider string) string {
+func GetDatabaseID(plexConnection *plex.Plex, metadata plex.Metadata, provider string) (string, error) {
 
-// 	fmt.Println("Grabing Provider for "+metadata.Title, "from "+provider)
+	// fmt.Println("Grabing Provider for "+metadata.Title, "from "+provider)
 
-// 	for i, DatabaseID := range metadata.AltGUIDs {
-// 		fmt.Println("Index: ", i)
-// 		fmt.Println("DatabaseID: ", DatabaseID)
-
-// 	}
-
-// 	return ""
-// }
-
-func GetDatabaseID(metadata plex.Metadata, provider string) string {
-	fmt.Println("Grabing Provider for "+metadata.Title, "from "+provider)
-
-	for i, AltGUID := range metadata.AltGUIDs {
-		fmt.Println("Index: ", i)
-		fmt.Println("AltGUID: ", AltGUID)
-
-		// Check if the id starts with the provider name
-		if strings.HasPrefix(AltGUID.ID, provider+"://") {
-			// Extract the actual ID after the provider name and return it
-			id := strings.TrimPrefix(AltGUID.ID, provider+"://")
-			fmt.Println("DatabaseID: ", id)
-			return id
+	result, err := plexConnection.GetMetadata(metadata.RatingKey)
+	if err != nil {
+		return "", err
+	}
+	for _, Provider := range result.MediaContainer.Metadata[0].AltGUIDs {
+		DatabaseID := strings.Split(Provider.ID, "://")
+		if DatabaseID[0] == provider {
+			return DatabaseID[1], nil
 		}
+		fmt.Println(Provider.ID)
 	}
 
-	fmt.Println("No match found for provider:", provider)
-	return ""
+	return "", fmt.Errorf("provider not found %s %s", result.MediaContainer.Metadata[0].Title, result.MediaContainer.Metadata[0].RatingKey)
 }
 
 // Function that returns an array of plex metadata to update all the ratings
-func pullRatings(metadata []plex.Metadata) []plex.Metadata {
+func pullRatings(plexConnection *plex.Plex, metadata []plex.Metadata) ([]plex.Metadata, error) {
 	results := []plex.Metadata{}
 	// Take Database ID from GetDatabaseID and pass it to imdbScraper
 	for _, Media := range metadata {
-		fmt.Println(Media.Title, Media.Type, GetDatabaseID(Media, "imdb"), "Old "+Media.ContentRating)
 		if Media.Type == "movie" {
-			Media.ContentRating = imdbScraper(GetDatabaseID(Media, "imdb"))
+			DBID, err := GetDatabaseID(plexConnection, Media, "imdb")
+			if err != nil {
+				return nil, err
+			}
+			Media.ContentRating = imdbScraper(DBID)
 		}
-		fmt.Println("New " + Media.ContentRating)
 		results = append(results, Media)
 	}
-	return results
+	return results, nil
 }
 
 // Function that takes a provided IMDB ID and Scrapes the Age Rating
@@ -149,27 +139,42 @@ func imdbScraper(titleID string) string {
 	// Extract IMDb ID from the URL
 	var imdbURL = "https://www.imdb.com/title/" + titleID + "/parentalguide"
 
-	fmt.Println("IMDB ID "+titleID, imdbURL)
+	// fmt.Println("IMDB ID "+titleID, imdbURL)
 
 	// creating a new Colly instance
 	c := colly.NewCollector()
 
-	rating := ""
+	nzrating := ""
+	usrating := ""
 
 	// scraping logic
 	c.OnHTML("section#certificates", func(e *colly.HTMLElement) {
 		e.ForEach("ul.ipl-inline-list li.ipl-inline-list__item a[href*=\"/search/title?certificates=NZ:\"]", func(_ int, elem *colly.HTMLElement) {
 			// Extract text from the <a> element
 			text := elem.Text
-			println("Text: " + text)
+			// println("Text: " + text)
 
 			// Split the text by colon
 			parts := strings.Split(text, ":")
 
 			// Ensure there are two parts (country and rating)
 			if len(parts) == 2 {
-				rating = strings.TrimSpace(parts[1])
-				fmt.Println("Rating: " + rating)
+				nzrating = strings.TrimSpace(parts[1])
+				fmt.Println("NZ Rating: " + nzrating)
+			}
+		})
+		e.ForEach("ul.ipl-inline-list li.ipl-inline-list__item a[href*=\"/search/title?certificates=US:\"]", func(_ int, elem *colly.HTMLElement) {
+			// Extract text from the <a> element
+			text := elem.Text
+			// println("Text: " + text)
+
+			// Split the text by colon
+			parts := strings.Split(text, ":")
+
+			// Ensure there are two parts (country and rating)
+			if len(parts) == 2 {
+				usrating = strings.TrimSpace(parts[1])
+				// fmt.Println("US Rating: " + usrating)
 			}
 		})
 	})
@@ -177,10 +182,31 @@ func imdbScraper(titleID string) string {
 	// visiting the target page
 	err := c.Visit(imdbURL)
 	if err != nil {
-		fmt.Println("Error scraping IMDB", err)
+		// fmt.Println("Error scraping IMDB", err)
 		return ""
 	}
-	return rating
+	if nzrating == "" {
+		nzrating = ratingFallback(usrating)
+		// fmt.Println("Overriding Missing NZ Rating with: " + nzrating)
+	}
+	// println("Final Rating: " + nzrating)
+	return nzrating
+}
+
+func ratingFallback(usrating string) string {
+	if strings.HasPrefix(usrating, "TV-Y") {
+		return "G"
+	}
+	switch usrating {
+	case "PG-13", "TV-PG", "TV-14":
+		return "R13"
+	case "TV-Y", "TV-G":
+		return "G"
+	case "TV-MA", "R":
+		return "R16"
+	default:
+		return "R18"
+	}
 }
 
 //For loop over all the directories
